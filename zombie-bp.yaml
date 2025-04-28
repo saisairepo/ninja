@@ -1,23 +1,23 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: zombie
-  namespace: zombie
+  name: ninja
+  namespace: ninja
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: zombie-app
+      app: ninja-app
   template:
     metadata:
       labels:
-        app: zombie-app
+        app: ninja-app
     spec:
       containers:
-      - name: z-cont
-        image: ghcr.io/saisairepo/zombie:v1.4
+      - name: n-cont
+        image: ghcr.io/saisairepo/ninja:v1.0
         ports:
-        - containerPort: 3000
+        - containerPort: 3001
         resources:
           requests:
             memory: "4Gi"
@@ -26,51 +26,44 @@ spec:
             memory: "4Gi"
             cpu: "2"
       imagePullSecrets:
-      - name: zombie-secret
+      - name: ninja-secret
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: z-service
-  namespace: zombie
+  name: n-service
+  namespace: ninja
 spec:
   selector:
-    app: zombie-app
+    app: ninja-app
   ports:
   - name: http
     port: 80
-    targetPort: 3000
+    targetPort: 3001
   type: ClusterIP
 ---
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: z-ingress
-  namespace: zombie
+  name: n-ingress
+  namespace: ninja
   annotations:
     nginx.ingress.kubernetes.io/rewrite-target: /
-    nginx.ingress.kubernetes.io/ssl-redirect: "false"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
 spec:
   ingressClassName: nginx
+  tls:
+    - hosts:
+        - ninja.mlhuillier.com
+      secretName: com-tls
   rules:
-  # IP access rule
-  - http:
-      paths:
-      - path: /
-        pathType: Prefix
-        backend:
-          service:
-            name: z-service
-            port:
-              number: 80
-  # FQDN access rule
-  - host: zombie.mlhuillier.com
-    http:
-      paths:
-      - path: /
-        pathType: Prefix
-        backend:
-          service:
-            name: z-service
-            port:
-              number: 80
+    - host: ninja.mlhuillier.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: n-service
+                port:
+                  number: 80
