@@ -1,4 +1,4 @@
-# Neon - ZOMBIE
+# Neon - NINZA
 
-A Pen created on CodePen.io. Original URL: [https://codepen.io/k5h2P/pen/qVNgGy](https://codepen.io/k5h2P/pen/qVNgGy).
+A Pen created on CodePen.io. Original URL: [https://codepen.io/johan-tirholm/pen/jZorRd](https://codepen.io/johan-tirholm/pen/jZorRd).
 
