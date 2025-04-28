@@ -1,591 +1,769 @@
-(function setup(window) {
-    var document = window.document;
-    Object.prototype.on = function(a, b) {
-      this.addEventListener(a, b);
-      return this;
-    };
-    Object.prototype.off = function(a, b) {
-      this.removeEventListener(a, b);
-      return this;
-    };
-    Array.prototype.remove = function(x) {
-      let a = [];
-      for (let i in this)
-        if (i != x)
-          a.push(this[i]);
-      return a;
-    };
-    window.can = document.querySelector("canvas");
-    window.ctx = window.can.getContext("2d");
-    window.can.width = window.innerWidth;
-    window.can.height = window.innerHeight;
-    window.randInt = function(a, b) {
-      if (a === void 0) return Math.round(Math.random());
-      else if (b === void 0) return Math.floor(Math.random() * a);
-      else return Math.floor(Math.random() * (b - a + 1) + a);
-    };
-    window.randFloat = function(a, b) {
-      if (a === void 0) return Math.random();
-      else if (b === void 0) return Math.random() * a;
-      else return Math.random() * (b - a) + a;
-    };
-    window.rand = function(a, b) {
-      return Array.isArray(a) ? a[Math.floor(Math.random() * a.length)] : window.randInt(a, b);
-    };
-  }(window));
+class Point {
+  constructor(x, y) {
+    this.x = x;
+    this.y = y;
+  }
+}
+
+class OffScreenCanvas {
+  constructor(width, height) {
+    let c = document.createElement('canvas');
+    c.width = width;
+    c.height = height;
+    this.ctx = c.getContext('2d');
+    this.canvas = c;
+  }
+}
+
+class Opening {
+  constructor(x, y) {
+    this.x = x;
+    this.y = y;
+  }
   
-  (function play(gameover) {
-    can.style.cursor = "none";
-    var mouse = {
-      x: can.width / 2,
-      y: -can.height
-    };
-    var player = {
-      x: can.width / 2,
-      y: can.height / 2,
-      s: 20,
-      mx: 0,
-      my: 0,
-      a: 0,
-      d: 1,
-      speed: 3,
-      speak: false,
-      say: function(s) {
-        this.message = s;
-        if (!this.speak)
-          this.speak = true;
-      },
-      softcore: [
-        "Revolver",
-        "Shotgun",
-        "Machine Gun",
-        "Sniper Rifle"
-      ],
-      hardcore: [
-        "Minigun",
-        "Mega Shotgun",
-        "Laser Gun",
-        "Ring of Fire"
-      ],
-      weapon: "Revolver",
-      applyWeaponProperties: function() {
-        switch(this.weapon) {
-          case "Revolver":
-            this.magSize = 6;
-            this.barrelSize = 1.5;
-            this.bulletSize = 1;
-            this.girth = 1;
-            this.hits = 2;
-            this.spray = 1;
-            this.reloadTime = 1000;
-            this.velocity = 1;
-            this.shade = 200;
-            this.laser = false;
-            this.fire = false;
-            break;
-          case "Shotgun":
-            this.magSize = 9;
-            this.barrelSize = 2;
-            this.bulletSize = 0.75;
-            this.girth = 1.2;
-            this.spray = 3;
-            this.hits = 1;
-            this.reloadTime = 1000;
-            this.velocity = 1;
-            this.shade = 100;
-            this.laser = false;
-            this.fire = false;
-            break;
-          case "Machine Gun":
-            this.magSize = 30;
-            this.barrelSize = 2;
-            this.bulletSize = 1;
-            this.girth = 1.2;
-            this.hits = 1;
-            this.spray = 1;
-            this.reloadTime = 2000;
-            this.velocity = 0.75;
-            this.shade = 100;
-            this.fireRate = 10;
-            this.laser = false;
-            break;
-          case "Sniper Rifle":
-            this.magSize = 5;
-            this.barrelSize = 2.5;
-            this.bulletSize = 1.5;
-            this.girth = 1;
-            this.spray = 1;
-            this.hits = Infinity;
-            this.reloadTime = 1000;
-            this.velocity = 2;
-            this.shade = 50;
-            this.laser = false;
-            this.fire = false;
-            break;
-          case "Mega Shotgun":
-            this.magSize = 50;
-            this.spray = 5;
-            this.barrelSize = 2;
-            this.bulletSize = 1;
-            this.girth = 1.5;
-            this.hits = 1;
-            this.reloadTime = 500;
-            this.velocity = 1.5;
-            this.shade = 100;
-            this.laser = false;
-            this.fire = false;
-            break;
-          case "Minigun":
-            this.magSize = 500;
-            this.barrelSize = 2.5;
-            this.bulletSize = 2;
-            this.girth = 2;
-            this.hits = 3;
-            this.spray = 1;
-            this.fireRate = 5;
-            this.reloadTime = 2000;
-            this.velocity = 3;
-            this.shade = 0;
-            this.laser = false;
-            break;
-          case "Laser Gun":
-            this.magSize = Infinity;
-            this.barrelSize = 2;
-            this.bulletSize = 2;
-            this.girth = 1.5;
-            this.spray = 1;
-            this.fireRate = 20;
-            this.hits = Infinity;
-            this.velocity = 3;
-            this.shade = 0;
-            this.laser = true;
-            break;
-          case "Ring of Fire":
-            this.magSize = 74;
-            this.spray = 37;
-            this.barrelSize = 0;
-            this.bulletSize = 2;
-            this.reloadTime = 2000;
-            this.hits = 2;
-            this.shade = 0;
-            this.girth = 0;
-            this.fireRate = 5;
-            this.velocity = 2;
-            this.laser = true;
-            this.fire = false;
+  draw($) {
+    let center = this.x - $.state.pos.x,
+        l = getCirclePoint(600, 800, center - ($.platform.width / 2)),
+        r = getCirclePoint(600, 800, center + ($.platform.width / 2));
+    
+    if(l > r) {
+      let sl = getCirclePoint(560, 800, center - ($.platform.width / 2)),
+          sr = getCirclePoint(560, 800, center + ($.platform.width / 2)),
+          c = new OffScreenCanvas(1600, 250),
+          sc = new OffScreenCanvas(1600, 250),
+          smallDoor = drawDoor(sc, '#b9e2d7', sr, sl - sr, 250, '#262525'),
+          bigDoor = drawDoor(c, $.ctx.createPattern(smallDoor, 'no-repeat'), r, l - r, 250);
+
+      $.ctx.drawImage(bigDoor, 0, this.y + $.state.pos.y);
+    }
+  }
+}
+
+function prepareGraphics() {
+  const b = 'https://s3-us-west-2.amazonaws.com/s.cdpn.io/21151/';
+  
+  prepareImage($, b + 'c-standing.png', 'standing', 0, false);
+  prepareImage($, b + 'c-standing.png', 'standing', 1, true);
+  
+  prepareImage($, b + 'c-jumping3.png', 'jumpingUp', 0, false);
+  prepareImage($, b + 'c-jumping3.png', 'jumpingUp', 1, true);
+  
+  prepareImage($, b + 'c-jumpingdown.png', 'jumpingDown', 0, false);
+  prepareImage($, b + 'c-jumpingdown.png', 'jumpingDown', 1, true);
+
+  prepareImage($, b + 'Slice 1_copy.png', 'runningLeft', 0, false);
+  prepareImage($, b + 'Slice 1_copy.png', 'runningLeft', 1, false);
+  prepareImage($, b + 'c-walking3.png', 'runningLeft', 2, false);
+  prepareImage($, b + 'c-walking3.png', 'runningLeft', 3, false);
+  
+  prepareImage($, b + 'Slice 1_copy.png', 'runningRight', 0, true);
+  prepareImage($, b + 'Slice 1_copy.png', 'runningRight', 1, true);
+  prepareImage($, b + 'c-walking3.png', 'runningRight', 2, true);
+  prepareImage($, b + 'c-walking3.png', 'runningRight', 3, true);
+}
+
+function prepareImage($, src, type, index, flipped) {
+  let temp = new OffScreenCanvas(317, 300),
+      image = new Image();
+  
+  image.onload = function() {
+    if(flipped) {
+      temp.ctx.save();
+      temp.ctx.scale(-1,1);
+    }
+    
+    temp.ctx.drawImage(image, 0, 0, 317 * (flipped ? -1 : 1), 300);
+    
+    if(flipped) {
+      temp.ctx.restore();
+    }
+    
+    $.animationFrames[type][index] = temp.canvas;
+  }
+  
+  image.src = src;
+  
+  return temp.canvas;
+}
+
+function drawDoor(c, color, x, width, height, bg) {
+    let y = 90;
+    
+    if(bg) {
+      c.ctx.fillStyle = bg;
+      c.ctx.fillRect(0, 0, c.canvas.width, c.canvas.height);
+    }
+  
+    c.ctx.fillStyle = color;
+    c.ctx.beginPath();
+    c.ctx.moveTo(x, y);
+    c.ctx.lineTo(x, y + height);
+    c.ctx.lineTo(x + width, y + height);
+    c.ctx.lineTo(x + width, y);
+    c.ctx.ellipse(x + (width / 2), y, width / 2, 90, 0, 0, Math.PI, true);
+    c.ctx.fill();
+  
+    return c.canvas;
+}
+
+class Platform {
+  constructor(x, y) {
+    this.x = x;
+    this.y = y;
+    this.infront = false;
+    this.outerBox = null;
+  }
+  
+  getY($) {
+    return this.y + $.state.pos.y;
+  }
+  
+  isInFront($) {
+    let center = this.x - $.state.pos.x,
+      innerBox = getBox($, 600, center),
+      outerBox = getBox($, 680, center);
+    
+    this.infront = outerBox.left > outerBox.right;
+    return this.infront;
+  }
+  
+  drawFront($) {
+    $.ctx.fillStyle = $.colors.wood2;
+    $.ctx.fillRect(this.outerBox.left, this.getY($), this.outerBox.width, $.platform.height);
+  }
+  
+  draw($) {
+    let center = this.x - $.state.pos.x,
+      innerBox = getBox($, 600, center),
+      outerBox = getBox($, 680, center),
+      isLeftSide = innerBox.left > outerBox.left;
+    
+    this.infront = outerBox.left > outerBox.right;
+    
+    for (let dir of ['left', 'right']) {
+      let adjust = dir === 'left' ? outerBox.unit : (outerBox.unit * 6),
+      outer = {
+        top: {
+          left: new Point(outerBox.left + adjust, this.getY($) + $.platform.height),
+          right: new Point(outerBox.left + outerBox.unit + adjust, this.getY($) + $.platform.height)
+        },
+        bottom: {
+          left: new Point(innerBox.left + adjust, this.getY($) + 70),
+          right: new Point(innerBox.left + innerBox.unit + adjust, this.getY($) + 70)
         }
       },
-      out: false,
-      fire: false,
-      showGun: true,
-      showMode: true,
-      hardcoreMode: 30,
-      lives: 3,
-      zombiesKilled: 0,
-      bullets: [],
-      fireRound: function(n) {
-        if (n === void 0) n = 0;
-        let a = Math.atan2(mouse.y - this.y, mouse.x - this.x);
-        if (!this.out)
-          this.bullets.push({
-            x: this.weapon == "Ring of Fire" ? this.x : this.x + Math.cos(a) * 2 * this.s,
-            y: this.weapon == "Ring of Fire" ? this.y : this.y + Math.sin(a) * 2 * this.s,
-            hit: false,
-            hits: 0,
-            px: Math.cos(a + n),
-            py: Math.sin(a + n)
-          });
-        if (this.showGun && this.bullets.length % this.magSize === 0) {
-          this.out = true;
-          this.say("Reload!");
-        } else this.speak = false;
-      }
-    };
-    player.applyWeaponProperties();
-    var zombies = [];
-    var Zombie = function() {
-      let s = rand(20, 30);
-      let a = rand(zombies.length < player.hardcoreMode ? 25 : 50) === 0;
-      let sp = rand(zombies.length + 10) === 0;
-      let speed = (sp ? 2 : 1) * randFloat(0.5, 1);
-      speed += zombies.length / 20;
-      let x = a ? rand(-s * rand(2, 10), can.width + s * rand(2, 10)) : rand([-s * rand(2, 10), can.width + s * rand(2, 10)]);
-      let y = a ? rand([-s * rand(2, 10), can.height + s * rand(2, 10)]) : rand(-s * rand(2, 10), can.height + s * rand(2, 10));
-      return {
-        x: x,
-        y: y,
-        wx: x,
-        wy: y,
-        s: s,
-        a: 0,
-        d: 1,
-        special: sp,
-        color: [rand(50, 100), rand(100, 150), rand(50)],
-        eyeColor: sp ? [255, 255, 255] : rand([
-          [rand(200, 255), rand(20), rand(20)],
-          [rand(20), rand(200, 255), rand(200, 255)],
-          [rand(rand(200, 255)), rand(200, 255), rand(20)]
-        ]),
-        speed: speed < 2 * player.speed ? speed : player.speed * 1.5
+      inner = {
+        top: {
+          left: new Point(outerBox.left + adjust, this.getY($) + ($.platform.height - 10)),
+          right: new Point(outerBox.left + outerBox.unit + adjust, this.getY($) + ($.platform.height - 10))
+        },
+        bottom: {
+          left: new Point(innerBox.left + adjust, this.getY($) + 60),
+          right: new Point(innerBox.left + innerBox.unit + adjust, this.getY($) + 60)
+        }
       };
-    };
-    for (let i = 0; i < 10; i++)
-      zombies.push(new Zombie());
-    var shadow = {
-      apply: function() {
-        ctx.shadowBlur = 30;
-        ctx.shadowOffsetX = -10;
-        ctx.shadowOffsetY = 10;
-      },
-      reset: function() {
-        ctx.shadowBlur = 0;
-        ctx.shadowOffsetX = 0;
-        ctx.shadowOffsetY = 0;
-      }
-    };
-    var Grass = function() {
-      return {
-        x: rand(can.width),
-        y: rand(can.height),
-        tx: rand(-3, 3),
-        ty: rand(-5, -10),
-        c: [0, rand(50, 100), 0]
-      };
-    };
-    var grass = [];
-    for (let i = 0; i < 100; i++)
-      grass.push(new Grass());
-    var frames = 0;
-    (function update() {
-      ctx.beginPath();
-      ctx.clearRect(0, 0, can.width, can.height);
-      ctx.shadowColor = "black";
-      shadow.reset();
-      for (let i in grass) {
-        let p = grass[i];
-        ctx.beginPath();
-        ctx.lineWidth = 2;
-        ctx.strokeStyle = "rgb(" + p.c + ")";
-        ctx.moveTo(p.x, p.y);
-        ctx.lineTo(p.x + p.tx, p.y - p.ty);
-        ctx.stroke();
-      }
-      ctx.strokeStyle = "black";
-      if (!gameover) {
-      for (let i in player.bullets) {
-        p = player.bullets[i];
-        if (!p.laser) shadow.apply();
-        if (!p.hit) {
-          ctx.beginPath();
-          if (player.laser) {
-            ctx.lineWidth = player.s / 10 * player.bulletSize;
-            ctx.strokeStyle = "red";
-            ctx.moveTo(p.x - p.px * player.s, p.y - p.py * player.s / 2);
-            ctx.lineTo(p.x, p.y);
-            ctx.stroke();
-          } else {
-            ctx.fillStyle = "black";
-            ctx.arc(p.x, p.y, player.s / 10 * player.bulletSize, 0, 2 * Math.PI);
-            ctx.fill();
-          }
-          p.x += p.px * 10 * player.velocity;
-          p.y += p.py * 10 * player.velocity;
-        }
-        shadow.apply();
-        for (let x in zombies) {
-          let z = zombies[x];
-          if (p.x > z.x - z.s &&
-             p.x < z.x + z.s &&
-             p.y > z.y - z.s &&
-             p.y < z.y + z.s &&
-             !(z.x + z.s < 0 ||
-             z.x - z.s > can.width ||
-             z.y + z.s < 0 ||
-             z.y - z.s > can.height) &&
-             !p.hit) {
-            p.hits++;
-            if (p.hits == player.hits)
-              p.hit = true;
-            player.zombiesKilled++;
-            if (zombies.length == player.hardcoreMode && player.showMode) {
-              player.say("Hardcore Mode Entered!");
-              player.mark = frames;
-              player.showMode = false;
-            }
-            zombies[x] = new Zombie();
-            if (player.zombiesKilled % 10 === 0) {
-              zombies.push(new Zombie());
-              if (zombies.length == player.hardcoreMode) {
-                player.weapon = rand(player.hardcore);
-                player.applyWeaponProperties();
-              }
-            }
-            if (z.special) {
-              player.weapon = function() {
-                let a = [];
-                let w = zombies.length < player.hardcoreMode ? player.softcore : player.hardcore;
-                for (let n = 0; n < w.length; n++)
-                  if (player.weapon != w[n])
-                    a.push(w[n]);
-                return rand(a);
-              }();
-              player.applyWeaponProperties();
-              player.lives++;
-              player.mark = frames;
-              setTimeout(function() {
-                player.out = false;
-                player.bullets = [];
-              });
-              player.say("You found a " + player.weapon.toLowerCase() + "!");
-            }
-          }
-        }
-      }
-      if (frames == player.mark + 500)
-        player.speak = false;
-      p = player;
-      let a = Math.atan2(mouse.y - p.y, mouse.x - p.x);
-      for (let x = -1; x <= 1; x += 2) {
-        ctx.beginPath();
-        ctx.lineWidth = p.s / 10;
-        ctx.strokeStyle = p.weapon == "Ring of Fire" && !p.out ? "red" : "black";
-        ctx.fillStyle = "rgb(150, 100, 50)";
-        ctx.arc(p.x + p.s * Math.cos(a + x * 30 * Math.PI / 180) + x * p.a * Math.cos(a), p.y + p.s * Math.sin(a + x * 30 * Math.PI / 180) + x * p.a * Math.sin(a), p.s / 3, 0, 2 * Math.PI);
-        ctx.fill();
-        ctx.stroke();
-      }
-      if (p.showGun) {
-        ctx.beginPath();
-        ctx.lineWidth = p.s / 2 * p.girth;
-        ctx.strokeStyle = "rgb(" + [p.shade, p.shade, p.shade] + ")";
-        ctx.moveTo(p.x, p.y);
-        ctx.lineTo(p.x + Math.cos(a) * p.barrelSize * p.s, p.y + Math.sin(a) * p.barrelSize * p.s);
-        ctx.stroke();
-      }
-      ctx.beginPath();
-      ctx.lineWidth = p.s / 10;
-      ctx.strokeStyle = p.weapon == "Ring of Fire" && !p.out ? "red" : "black";
-      ctx.fillStyle = "rgb(150, 100, 50)";
-      ctx.arc(p.x, p.y, p.s, 0, 2 * Math.PI);
-      ctx.fill();
-      ctx.stroke();
-      shadow.reset();
-      for (let x = -1; x <= 1; x += 2) {
-        ctx.beginPath();
-        ctx.fillStyle = "white";
-        ctx.strokeStyle = "black";
-        ctx.arc(p.x + Math.cos(a + x * 35 * Math.PI / 180) * p.s / 2, p.y + Math.sin(a + x * 35 * Math.PI / 180) * p.s / 2, p.s / 4, 0, 2 * Math.PI);
-        ctx.fill();
-        ctx.stroke();
-        ctx.beginPath();
-        ctx.fillStyle = "black";
-        ctx.arc(p.x + Math.cos(a + x * 35 * Math.PI / 180) * p.s / 2 + Math.cos(a) * p.s / 8, p.y + Math.sin(a + x * 35 * Math.PI / 180) * p.s / 2 + Math.sin(a) * p.s / 8, p.s / 8, 0, 2 * Math.PI);
-        ctx.fill();
-      }
-      if (p.speak) {
-        ctx.beginPath();
-        ctx.textAlign = "center";
-        ctx.textBaseline = "middle";
-        ctx.font = p.s + "px creepster";
-        ctx.fillText(p.message, p.x, p.y - p.s * 2);
-      }
-      if (p.fire && frames % p.fireRate === 0)
-        switch(p.weapon) {
-          case "Laser Gun":
-            for (let i = -45; i <= 45; i += 45)
-              p.fireRound(i / 10);
-            break;
-          default:
-            p.fireRound();
-        }
-        p.x += p.mx * p.speed;
-        p.y += p.my * p.speed;
-        p.a += (p.mx === 0 && p.my === 0 ? 0 : 1) * p.speed / 2 * p.d;
-        if (p.a < -5) p.d = 1;
-        else if (p.a > 5) p.d = -1;
-      }
-      for (let i in zombies) {
-        p = zombies[i];
-        if (gameover) {
-          a = rand() === 0;
-          a = Math.atan2(p.wy - p.y, p.wx - p.x);
-        } else a = Math.atan2(player.y - p.y, player.x - p.x);
-        ctx.beginPath();
-        shadow.apply();
-        ctx.lineWidth = p.s / 10;
-        ctx.fillStyle = "rgb(" + p.color + ")";
-        for (let x = -1; x <= 1; x += 2) {
-          ctx.beginPath();
-          ctx.arc(p.x + Math.cos(a + x * 30 * Math.PI / 180) * p.s + x * p.a * Math.cos(a), p.y + Math.sin(a + x * 30 * Math.PI / 180) * p.s + x * p.a * Math.sin(a), p.s / 3, 0, 2 * Math.PI);
-          ctx.fill();
-          ctx.stroke();
-        }
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, p.s, 0, 2 * Math.PI);
-        ctx.fill();
-        ctx.stroke();
-        ctx.beginPath();
-        shadow.reset();
-        for (let x = -1; x <= 1; x += 2) {
-          ctx.beginPath();
-          ctx.fillStyle = "rgb(" + p.eyeColor + ")";
-          ctx.arc(p.x + Math.cos(a + x * 35 * Math.PI / 180) * p.s / 2, p.y + Math.sin(a + x * 35 * Math.PI / 180) * p.s / 2, p.s / 4, 0, 2 * Math.PI);
-          ctx.fill();
-          ctx.stroke();
-        }
-        p.x += Math.cos(a) * p.speed;
-        p.y += Math.sin(a) * p.speed;
-        p.a += p.speed / 2 * p.d;
-        if (p.a < -5) p.d = 1;
-        else if (p.a > 5) p.d = -1;
-        if (player.x + player.s > p.x - p.s &&
-           player.x - player.s < p.x + p.s &&
-           player.y + player.s > p.y - p.s &&
-           player.y - player.s < p.y + p.s) {
-          player.lives--;
-          if (player.lives < 0) {
-            if (!gameover) {
-              let zom = new Zombie();
-              zom.x = player.x;
-              zom.y = player.y;
-              zom.s = player.s;
-              zom.speed = player.speed;
-              zom.eyeColor = [255, 255, 255];
-              zombies.push(zom);
-            }
-            gameover = true;
-          } else zombies[i] = new Zombie();
-        }
-      }
-      if (gameover) {
-        can.style.cursor = "default";
-        ctx.beginPath();
-        ctx.fillStyle = "rgba(0, 0, 0, 0.5)";
-        ctx.fillRect(0, 0, can.width, can.height);
-        ctx.beginPath();
-        ctx.fillStyle = "black";
-        ctx.font = "100px creepster";
-        ctx.textAlign = "center";
-        ctx.textBaseline = "middle";
-        ctx.fillText("YOU DIED! " + (player.zombiesKilled < 1 ? "No" : player.zombiesKilled.toLocaleString()) + " Zombie" + (player.zombiesKilled == 1 ? "" : "s") + " Killed", can.width / 2, can.height / 2);
-        ctx.font = "50px creepster";
-        ctx.fillText("PRESS ENTER TO RESTART", can.width / 2, 0.75 * can.height);
+      
+      drawPolygon($, $.colors.wood3, inner.top.left, inner.bottom.left, inner.bottom.right, inner.top.right);
+      drawPolygon($, $.colors.wood4, outer.top.left, outer.bottom.left, outer.bottom.right, outer.top.right);
+      
+      if(!isLeftSide) {
+        drawPolygon($, $.colors.wood5, inner.top.right, outer.top.right, outer.bottom.right, inner.bottom.right);
       } else {
-        for (let i = 0; i < player.lives; i++) {
-          ctx.beginPath();
-          ctx.lineWidth = 2;
-          ctx.fillStyle = "red";
-          ctx.arc(i * 20 + 10, 10, 10, 0, 2 * Math.PI);
-          ctx.fill();
-          ctx.stroke();
-        }
-        ctx.beginPath();
-        ctx.fillStyle = "black";
-        ctx.textAlign = "left";
-        ctx.textBaseline = "top";
-        ctx.font = "20px roboto mono";
-        ctx.fillText("Weapon: " + player.weapon, 0, 20);
-        ctx.fillText((player.magSize - player.bullets.length) / player.spray + "/" + player.magSize / player.spray, 0, 40);
-        ctx.beginPath();
-        ctx.lineWidth = 2;
-        ctx.fillStyle = "red";
-        ctx.arc(mouse.x, mouse.y, 5, 0, 2 * Math.PI);
-        ctx.fill();
-        ctx.stroke();
+        drawPolygon($, $.colors.wood5, inner.top.left, outer.top.left, outer.bottom.left, inner.bottom.left);
       }
-      frames++;
-      requestAnimationFrame(update);
-    }());
-    can.on("mousedown", function() {
-      switch(player.weapon) {
-        case "Machine Gun":
-        case "Minigun":
-        case "Laser Gun":
-        player.fire = true;   
-      }
-    }).on("mouseup", function() {
-      switch(player.weapon) {
-        case "Revolver":
-        case "Sniper Rifle":
-        case "Laser Gun":
-          player.fireRound();
-          break;
-        case "Shotgun":
-          for (let i = -1; i <= 1; i++)
-            player.fireRound(i / 10);
-        break;
-        case "Mega Shotgun":
-          for (let i = -2; i <= 2; i++)
-            player.fireRound(i / 10);
-          break;
-        case "Ring of Fire":
-          for (let i = -90; i <= 90; i += 5)
-            player.fireRound(i);
-        }
-      player.fire = false;
-    }).on("mousemove", function(e) {
-      mouse.x = e.offsetX;
-      mouse.y = e.offsetY;
-    });
-    var move = function(e) {
-      if (gameover)
-        switch(e.which || e.keyCode) {
-          case 32:
-          case 13:
-            play(false);
-            this.off("keydown", move);
-        }
-      else switch(e.which || e.keyCode) {
-          case 37:
-          case 65:
-            player.mx = -1;
-            break;
-          case 39:
-          case 68:
-            player.mx = 1;
-            break;
-          case 38:
-          case 87:
-            player.my = -1;
-            break;
-          case 40:
-          case 83:
-            player.my = 1;
-        }
-    };
-    window.on("resize", function() {
-      can.width = this.innerWidth;
-      can.height = this.innerHeight;
-      for (let i in grass)
-        grass[i] = new Grass();
-    }).on("keydown", move)
-      .on("keyup", function(e) {
-      switch(e.which || e.keyCode) {
-        case 37:
-        case 65:
-        case 39:
-        case 68:
-          player.mx = 0;
-          break;
-        case 38:
-        case 87:
-        case 40:
-        case 83:
-          player.my = 0;
-          break;
-        case 82:
-          if (player.bullets.length > 0) {
-              player.showGun = false;
-            if (player.speak)
-              player.speak = false;
-            setTimeout(function() {
-              player.out = false;
-                player.bullets = [];
-              player.showGun = true;
-            }, player.reloadTime);
-          }
-          break;
-      }
-    });
-  }(false));
+    }
+    
+    $.ctx.fillStyle = $.colors.wood1;
+    if(isLeftSide) {
+      $.ctx.fillRect(innerBox.left, this.getY($), outerBox.left - innerBox.left, $.platform.height);
+    } else {
+      $.ctx.fillRect(outerBox.right, this.getY($), innerBox.left - outerBox.left, $.platform.height);
+    }
+    
+    this.outerBox = outerBox;
+  }
+}
+
+function drawPolygon($, color, ...points) {
+  $.ctx.fillStyle = color;
+  $.ctx.beginPath();
+  $.ctx.moveTo(points[0].x, points[0].y);
+  for (let i = 1; i < points.length; i++) {
+    $.ctx.lineTo(points[i].x, points[i].y);
+  }
+  $.ctx.fill();
+}
+
+function getBox($, radius, center) {
+    let l = getCirclePoint(radius, 800, center - ($.platform.width / 2)),
+        r = getCirclePoint(radius, 800, center + ($.platform.width / 2));
   
+    return {
+      left: l,
+      right: r,
+      width: r - l,
+      unit: (r - l) / 8
+    };
+}
+
+var fallbackCanvas = new OffScreenCanvas(10, 10).canvas;
+
+var $ = {
+      container: null,
+      canvas: null,
+      ctx: null,
+      platforms: [new Platform(1600, 600),
+                  new Platform(1585, 600),
+                  new Platform(1570, 600),
+                  new Platform(1540, 500),
+                  new Platform(1525, 500),
+                  new Platform(1480, 500),
+                  new Platform(1465, 500),
+                 new Platform(1435, 400),
+                 new Platform(1415, 270),
+                 new Platform(1435, 135),
+                 new Platform(1465, 40),
+                 new Platform(1480, 40),
+                 new Platform(1500, -80),
+                 new Platform(1520, -200),
+                 new Platform(1520, -335),
+                 new Platform(1490, -460),
+                 new Platform(1460, -535),
+                 new Platform(1430, -610),
+                 new Platform(1415, -610),
+                 new Platform(1370, -610),
+                 new Platform(1355, -610),
+                 new Platform(1355, -610),
+                 new Platform(1330, -710),
+                 new Platform(1305, -810),
+                 new Platform(1280, -910),
+                 new Platform(1265, -910),
+                 new Platform(1220, -910),
+                 new Platform(1205, -910),
+                 new Platform(1150, -910),
+                 new Platform(1100, -910)],
+      openings: [new Opening(1600, 350),
+                 new Opening(1205, -1160)],
+      brick: {
+        shine: "",
+        shade: "rgba(256, 256, 256, 0.8)",
+        color: "rgba(186, 186, 173, 0.8)", // #BABAAD
+        width: 16,
+        height: 48,
+        padding: 4
+      },
+      platform: {
+        height: 22,
+        width: 13, /* Degrees */
+        color: '#5A4142'
+      },
+      tower: {
+        width: 1200,
+        shadowWidth: 130,
+        skyWidth: 200
+      },
+      sky: {
+        bg: '#1F0B22',
+        starSizes : [2, 3, 4, 5],
+        starColors: ['#6C586F',
+                '#857188',
+                '#D1BDD4',
+                '#E6D1A8']
+      },
+      colors: {
+        bg: '#FBD0D0',
+        wood1: '#BC8550', // side
+        wood2: '#ECC897', // front
+        wood3: '#4B3937', // back support
+        wood4: '#FFB287', // front support
+        wood5: '#D58212' // side support
+      },
+      settings: {
+        maxSpeed: 0.09, // left right
+        minSpeed: 0.01, // left right
+        friction: 0.7, // left right
+        acceleration: 0.02, // left right
+        jump: {
+          gravity: {
+            boost: 0.0014,
+            normal: 0.003,
+            down: 0.004
+          },
+          maxSpeed: 0.6,
+          fallStartSpeed: 0.07,
+          friction: 0.98
+        }
+      },
+      storage: {
+        bricks: null,
+        sky: null,
+        shadows: null
+      },
+      input: {
+        left: false,
+        right: false,
+        jump: false
+      },
+      animationFrames: {
+        standing: [fallbackCanvas, fallbackCanvas],
+        jumpingUp: [fallbackCanvas, fallbackCanvas],
+        jumpingDown: [fallbackCanvas, fallbackCanvas],
+        runningLeft: [fallbackCanvas, fallbackCanvas, fallbackCanvas, fallbackCanvas],
+        runningRight: [fallbackCanvas, fallbackCanvas, fallbackCanvas, fallbackCanvas]
+      },
+      savedState: null,
+      state: {
+        paused: false,
+        titles: {
+          opacity: 0,
+          ready: false,
+          text: "Game Over"
+        },
+        climbstarted: false,
+        time: null,
+        dt: null,
+        climbspeed: {
+          normal: 0.05,
+          fast: 0.12
+        },
+        pos: {
+          x: 1485,
+          y: 0
+        },
+        activePlatforms: [],
+        jump: {
+          isGrounded: true,
+          isJumping: false,
+          isBoosting: false,
+          speed: 0,
+          nextY: 0
+        },
+        player: {
+          dir: 1,
+          x: 725,
+          y: 350,
+          prevY: 350,
+          speed: 0,
+          animationFrame: 0,
+          animationFrameCount: 0
+        }
+      }
+};
+
+$.container = document.getElementById('container');
+$.canvas = document.getElementsByTagName('canvas')[0];
+$.ctx = $.canvas.getContext('2d');
+
+resize();
+if(!$.savedState) {
+  $.savedState = JSON.parse(JSON.stringify($.state));
+}
+
+prepareGraphics();
+draw();
+
+window.addEventListener("keydown", keyDown, false);
+window.addEventListener("keyup", keyUp, false);
+
+function keyUp(e) {
+  move(e, false);
+}
+
+function keyDown(e) {
+  move(e, true);
+}
+
+function move(e, keyDown) {
+    if(e.keyCode === 37)
+      $.input.left = keyDown;
+    if(e.keyCode === 39)
+      $.input.right = keyDown;
+    if(e.keyCode === 32)
+      $.input.jump = keyDown;
+}
+
+function resize() {
+  $.rect = $.container.getBoundingClientRect();
+  
+  if($.canvas.height > window.innerHeight) {
+      $.container.style.transform = `scale(${ window.innerHeight / $.canvas.height })`;
+  }
+}
+
+window.addEventListener('resize', function(event) {
+  resize();
+});
+
+function draw() {
+    let now = new Date().getTime();
+    $.state.dt = now - ($.state.time || now);
+    $.state.time = now;
+    
+    if(!$.state.paused) {
+      doCalculations();
+    }
+  
+    if(!$.state.paused && $.state.titles.opacity !== 100) {
+      drawSky();
+      drawPlatforms(false);
+      drawBricks();
+      drawDoors();
+      drawShadows();
+      drawPlatforms(true);
+      drawPlayer($);
+    }
+  
+    if($.state.paused) {
+      drawTitles();
+    }
+  
+    requestAnimationFrame(draw);
+}
+
+function drawTitles() {
+  if($.state.titles.opacity < 100) {
+    $.state.titles.opacity += Math.floor($.state.dt * 0.2);
+  }
+
+  if($.state.titles.opacity > 100)
+    $.state.titles.opacity = 100;
+
+  $.ctx.fillStyle = "rgba(0, 0, 0, " + $.state.titles.opacity / 100 + ")";
+  $.ctx.rect(0, 0, $.canvas.width, $.canvas.height);
+  $.ctx.fill();
+
+  $.ctx.fillStyle = "rgba(251, 199, 15, " + $.state.titles.opacity / 100 + ")";
+  $.ctx.font = "96px 'Germania One', cursive";
+  $.ctx.fillText($.state.titles.text, 600, 520 - (easing($.state.titles.opacity / 100) * 40));
+  
+  if($.state.titles.opacity == 100 && !$.input.jump) {
+    $.state.titles.ready = true;
+  }
+  
+  if($.state.titles.ready && $.input.jump) {
+    $.state = JSON.parse(JSON.stringify($.savedState));
+  }
+}
+
+function easing (n) {
+  // https://github.com/component/ease
+  var s = 1.70158;
+  return --n * n * ((s + 1) * n + s) + 1;
+}
+
+function drawPlayer($) {
+  let drawY = $.state.player.y + $.state.pos.y - 48,
+      drawX = $.state.player.x - ($.state.player.dir ? 120 : 80);
+
+  if($.state.jump.isJumping) {
+    if($.state.jump.speed > 0) {
+      $.ctx.drawImage($.animationFrames.jumpingUp[$.state.player.dir], drawX, drawY);
+    } else {
+      $.ctx.drawImage($.animationFrames.jumpingDown[$.state.player.dir], drawX, drawY);
+    }
+  }
+  else if($.state.player.speed !== 0) {
+    if($.state.player.dir) {
+       $.ctx.drawImage($.animationFrames.runningRight[$.state.player.animationFrame], drawX, drawY);
+    } else {
+       $.ctx.drawImage($.animationFrames.runningLeft[$.state.player.animationFrame], drawX, drawY);
+    }
+  } else {
+       $.ctx.drawImage($.animationFrames.standing[$.state.player.dir], drawX, drawY);
+  }
+
+  //$.ctx.fillRect($.state.player.x, $.state.player.y + $.state.pos.y, 150, 250);
+  $.state.player.animationFrameCount += $.state.dt;
+  
+  if($.state.player.animationFrameCount > 50) {
+    $.state.player.animationFrame += 1;
+    $.state.player.animationFrameCount = 0;
+  }
+  
+  if($.state.player.animationFrame > 3) {
+    $.state.player.animationFrame = 0;
+  }
+}
+
+function drawDoors() {
+  for (let i = 0; i < $.openings.length; i++) {
+    let opening = $.openings[i];
+    
+    if(opening.x < $.state.pos.x - 40)
+      continue;
+    
+    if(opening.x > ($.state.pos.x + 220))
+      continue;
+    
+    opening.draw($);
+  }
+}
+
+function drawPlatforms(drawInfrontPlatforms) {
+  if(drawInfrontPlatforms) {
+    $.state.activePlatforms = [];
+  }
+  
+  for (let i = 0; i < $.platforms.length; i++) {
+    let platform = $.platforms[i];
+    
+    if(platform.x < $.state.pos.x - 40)
+      continue;
+    
+    if(platform.x > ($.state.pos.x + 220))
+      continue;
+    
+    if(drawInfrontPlatforms) {
+      if(platform.isInFront($)) {
+        platform.draw($);
+        $.state.activePlatforms.push(platform);
+      }
+    }
+    else if(!platform.isInFront($)) {
+        platform.draw($);
+    }
+  }
+  
+  for (let i = 0; i < $.state.activePlatforms.length; i++) { 
+    $.state.activePlatforms[i].drawFront($);
+  }
+}
+
+function doCalculations() {
+  if($.input.left) {
+    $.state.player.speed += $.settings.acceleration;
+  }
+  else if($.input.right) {
+    $.state.player.speed -= $.settings.acceleration;
+  } else if($.state.player.speed !== 0) {
+    $.state.player.speed *= $.state.jump.isJumping ? $.settings.jump.friction : $.settings.friction;
+  }
+  
+  if(Math.abs($.state.player.speed) > $.settings.maxSpeed) {
+    $.state.player.speed = $.state.player.speed > 0 ? $.settings.maxSpeed : -1 * $.settings.maxSpeed;
+  } else if(Math.abs($.state.player.speed) < $.settings.minSpeed) {
+    $.state.player.speed = 0;
+  }
+  
+  if($.state.player.speed !== 0) {
+    let currentSpeed = $.state.jump.isJumping ? ($.state.player.speed * 0.7) : $.state.player.speed;
+    $.state.pos.x += $.state.player.speed < 0 ? Math.ceil(currentSpeed * $.state.dt) : Math.floor(currentSpeed * $.state.dt);
+    $.state.player.dir = currentSpeed > 0 ? 0 : 1;
+  }
+  
+  if(!$.state.climbstarted && $.input.jump) {
+    $.state.climbstarted = true;
+  }
+  
+  if($.input.jump || $.state.jump.isJumping) {
+    if($.state.jump.isGrounded) {
+      $.state.jump.isGrounded = false;
+      $.state.jump.isJumping = true;
+      $.state.jump.isBoosting = true;
+      $.state.jump.speed = $.settings.jump.maxSpeed;
+    }
+    
+    if($.state.jump.isJumping) {
+      let upwards = $.state.jump.speed > 0,
+          adjust = $.state.dt < 30 ? (30 - $.state.dt) : 0; // .·´¯`(>▂<)´¯`·.
+      
+      if(!upwards && $.state.jump.isBoosting) {
+        $.state.jump.isBoosting = false;
+      }
+      
+      $.state.player.prevY = $.state.player.y;
+      $.state.player.y -= ($.state.jump.speed * $.state.dt);
+      $.state.jump.speed -= ($.settings.jump.gravity[upwards ? ($.state.jump.isBoosting ? 'boost' : 'normal') : 'down'] - (adjust * 0.00002)) * $.state.dt;
+    }
+  }
+  
+  if($.state.jump.isBoosting && !$.input.jump) {
+    $.state.jump.isBoosting = false;
+  }
+
+  if($.state.climbstarted && $.state.pos.y < 1440) {
+    $.state.pos.y += (($.state.player.y + $.state.pos.y) < 250 ? $.state.climbspeed.fast : $.state.climbspeed.normal) * $.state.dt;
+  }
+  
+  collisionDetection();
+  
+  if(($.state.player.y + $.state.pos.y) > 900) {
+    $.state.paused = true;
+  }
+}
+
+function collisionDetection() {
+  if($.state.jump.isJumping && $.state.jump.speed < 0) { 
+    for (let i = 0; i < $.state.activePlatforms.length; i++) {
+      let platform = $.state.activePlatforms[i];
+
+      if(Math.abs(platform.x - ($.state.pos.x + 90)) < 10) {
+        let playerFloor = $.state.player.y + 250,
+            playerFloorPrev = $.state.player.prevY + 250;
+        
+        if(playerFloor > platform.y &&
+           playerFloorPrev < platform.y) {       
+          $.state.player.y = platform.y - 250;
+          $.state.jump.isGrounded = true;
+          $.state.jump.isJumping = false;
+          $.state.jump.isBoosting = false;
+          $.state.jump.speed = 0;
+        }
+      }
+    }
+  } else if($.state.jump.isGrounded) {
+    let groundToStandOnFound = false;
+    
+    for (let i = 0; i < $.state.activePlatforms.length; i++) {
+      let platform = $.state.activePlatforms[i];
+      
+      if(Math.abs(platform.x - ($.state.pos.x + 90)) < 10) {
+        if(platform.y - ($.state.player.y + 250) === 0) {
+          groundToStandOnFound = true;
+          break;
+        }
+      }
+    }
+    
+    if(!groundToStandOnFound) {
+      $.state.jump.isGrounded = false;
+      $.state.jump.isJumping = true;
+      $.state.jump.isBoosting = true;
+      $.state.jump.speed = $.settings.jump.fallStartSpeed;
+    }
+  }
+}
+
+function drawSky() {
+  if($.storage.sky == null) {
+    let height = $.canvas.height,
+        temp = new OffScreenCanvas($.canvas.width, height);
+    temp.ctx.fillStyle = $.sky.bg;
+    temp.ctx.fillRect(0, 0, $.canvas.width, height);
+
+    for (let i = 0; i < 150; i++) {
+      let starSize = Math.floor(Math.random() * $.sky.starSizes.length);
+      temp.ctx.fillStyle = $.sky.starColors[starSize];
+      temp.ctx.beginPath();
+      temp.ctx.arc(Math.floor(Math.random() * $.canvas.width),
+                Math.floor(Math.random() * height), 
+                $.sky.starSizes[starSize], 0, 2 * Math.PI);
+      temp.ctx.fill();
+    }
+    
+    $.storage.sky = temp.canvas;
+  } else {
+    let skypos = ((($.state.pos.x - 2000) % 200) * 8) * -1,
+        skyYPos = $.state.pos.y % $.canvas.height;
+    
+    $.ctx.drawImage($.storage.sky, skypos, skyYPos);
+    $.ctx.drawImage($.storage.sky, skypos - $.canvas.width, skyYPos);
+    $.ctx.drawImage($.storage.sky, skypos, skyYPos - $.canvas.height);
+    $.ctx.drawImage($.storage.sky, skypos - $.canvas.width, skyYPos - $.canvas.height);
+  }
+}
+
+function drawShadows() {
+    if($.storage.shadows) {
+      $.ctx.drawImage($.storage.shadows, $.tower.skyWidth, 0);
+    } else {
+      var temp = new OffScreenCanvas($.tower.width, $.canvas.height);
+      drawTowerShadow(temp.ctx, 0, $.tower.shadowWidth + 80, $.canvas.height, '#727C80', 'transparent');
+      drawTowerShadow(temp.ctx, 0, $.tower.shadowWidth, $.canvas.height, '#00011F', 'transparent');
+      drawTowerShadow(temp.ctx, temp.canvas.width - ($.tower.shadowWidth + 80), $.tower.shadowWidth + 80, $.canvas.height, 'transparent', '#727C80');
+      drawTowerShadow(temp.ctx, temp.canvas.width - $.tower.shadowWidth, $.tower.shadowWidth, $.canvas.height, 'transparent', '#00011F');
+      $.storage.shadows = temp.canvas;
+    }
+}
+
+function drawTowerShadow(ctx, start, width, height, from, to) {
+  let grd = ctx.createLinearGradient(start, 0, start + width, 0);
+  grd.addColorStop(0, from);
+  grd.addColorStop(1, to);
+
+  ctx.fillStyle = grd;
+  ctx.fillRect(start, 0, width, height);
+}
+
+function drawBricks() {
+  let brickRowHeight = ($.brick.height * 2) + ($.brick.padding * 2);
+  
+  if(!$.storage.bricks) {
+    $.storage.bricks = {};
+    for (let i = 0; i < 16; i++) { 
+      $.storage.bricks["brick" + i] = brickFactory(brickRowHeight, i);
+    }
+  }
+  
+  for (let row = -1; row < 12; row++) {
+    $.ctx.drawImage($.storage.bricks["brick" + ($.state.pos.x % $.brick.width)], $.tower.skyWidth, (brickRowHeight * row) + ($.state.pos.y % brickRowHeight));
+  }
+}
+
+function brickFactory(height, pos) {
+  let temp = new OffScreenCanvas($.tower.width, height),
+      x = $.brick.padding,
+      y = $.brick.padding,
+      pointA = { x: 0, y: 0 },
+      pointB,
+      step = $.brick.width, 
+      halfrow = true,
+      gradient = temp.ctx.createLinearGradient(0, 0, temp.canvas.width, height);
+  
+  gradient.addColorStop(0,"black");
+  gradient.addColorStop(0.35, "#353637");
+  gradient.addColorStop(0.65, "#353637");
+  gradient.addColorStop(1,"black");
+
+  temp.ctx.fillStyle = gradient;
+
+  temp.ctx.fillRect(0, 0, temp.canvas.width, temp.canvas.height);
+  
+  for (let i = 0; i < 2; i++) {
+    for (let j = 180 + pos; j <= 360; j += step) {
+      pointA = getCirclePoint(600, 600, j)
+      
+      if(halfrow) {
+        j += step / 2;
+        halfrow = false;
+      }
+      
+      pointB = getCirclePoint(600, 600, j + step);
+      
+      // Main
+      temp.ctx.fillStyle = $.brick.color;
+      temp.ctx.fillRect(pointA, y, pointB - pointA - $.brick.padding, $.brick.height);
+      
+      // Shade
+      temp.ctx.fillStyle = $.brick.shade;
+      temp.ctx.fillRect(pointA, y, pointB - pointA - $.brick.padding, 3);
+    }
+    
+    y += $.brick.padding;
+    y += $.brick.height;
+  }
+  
+  return temp.canvas;
+}
+
+function getCirclePoint(radius, center, angle) {
+    var radian = (angle / 180) * Math.PI;
+  
+    return (center + radius * Math.cos(radian));
+}
+
+function norm(value, min, max) {
+  return (value - min) / (max - min);
+}
+
+function lerp(norm, min, max) {
+  return (max - min) * norm + min;
+}
+
+function map(value, sourceMin, sourceMax, destMin, destMax) {
+  return lerp(norm(value, sourceMin, sourceMax), destMin, destMax);
+}
+
+function clamp(value, min, max) {
+  return Math.min(Math.max(value, min), max);
+}
